@@ -4,7 +4,7 @@
 volatile int hold_mode = 1;
 
 DWORD WINAPI toggle_hold_mode(LPVOID lpParam) {
-    int x_key = get_key_code("backspace");
+    int x_key = get_key_code("tilde");
 
     while (true) {
         if (is_key_pressed(x_key)) {
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
             keys_pressed = false;
         }
 
-        if (hold_mode == 0 && is_key_pressed(get_key_code(cfg.hold_key))) {
+        if (hold_mode == 1 || is_key_pressed(get_key_code(cfg.hold_key))) {
             unsigned int *pPixels = get_screenshot(0, cfg.scan_area_x, cfg.scan_area_y);
 
             if (pPixels == 0) {
@@ -93,27 +93,6 @@ int main(int argc, char* argv[]) {
                     Sleep(50 + rand() % 70);
                 }
 				left_click();
-                stop_counter();
-                last_detected = true;
-                Sleep(cfg.tap_time);
-            }
-            free(pPixels);
-        } else if (hold_mode == 1) {
-            unsigned int *pPixels = get_screenshot(0, cfg.scan_area_x, cfg.scan_area_y);
-
-            if (pPixels == 0) {
-                printf("ERROR: get_screenshot() failed!");
-                printf("\nPress enter to exit: ");
-                getchar();
-                return 1;
-            }
-
-            if (is_color_found(pPixels, pixel_count, red, green, blue, cfg.color_sens)) {
-                if(!last_detected) {
-                    // Sleep 50~120ms
-                    Sleep(50 + rand() % 70);
-                }
-                left_click();
                 stop_counter();
                 last_detected = true;
                 Sleep(cfg.tap_time);

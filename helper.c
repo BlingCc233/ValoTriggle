@@ -264,7 +264,8 @@ int get_key_code(char* input_key) {
         {"f9", 0x78},
         {"f10", 0x79},
         {"f11", 0x7A},
-        {"f12", 0x7B}
+        {"f12", 0x7B},
+        {"tilde", 0x7E}
     };
 
 
@@ -407,9 +408,9 @@ void stop_counter() {
 void left_click() {
 //    mouse_event(MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
 
-    keybd_event(0x4b, 0, 0, 0);        // Press 'K'
+    keybd_event(get_key_code("k"), 0, 0, 0);        // Press 'K'
     Sleep(187);
-    keybd_event(0x4b, 0, KEYEVENTF_KEYUP, 0); // Release 'K'
+    keybd_event(get_key_code("k"), 0, KEYEVENTF_KEYUP, 0); // Release 'K'
 }
 
 bool is_key_pressed(int hold_key) {

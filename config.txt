@@ -1,7 +1,7 @@
 hold_mode=1
 hold_key=left_shift
 target_color=purple
-color_sens=130
+color_sens=4
 tap_time=220
 scan_area_x=8
 scan_area_y=8

@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
 
-            if (is_color_found(pPixels, pixel_count, red, green, blue, cfg.color_sens)) {
+            if (is_color_found_DE(pPixels, pixel_count, red, green, blue, cfg.color_sens)) {
                 if(!last_detected) {
                     // Sleep 50~120ms
                     Sleep(50 + rand() % 70);

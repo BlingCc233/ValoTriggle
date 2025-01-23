@@ -39,5 +39,9 @@ void stop_counter();
 void left_click();
 bool is_key_pressed(int hold_key);
 void print_logo();
+bool is_color_found_HSV(DWORD* pPixels, int pixel_count, int red, int green, int blue, double tolerance);
+bool is_color_found_DE(DWORD* pPixels, int pixel_count, int red, int green, int blue, double threshold);
+bool is_color_found_weight(DWORD* pPixels, int pixel_count, int red, int green, int blue, double tolerance);
+
 
 #endif

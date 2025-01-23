@@ -10,11 +10,39 @@ DWORD WINAPI toggle_hold_mode(LPVOID lpParam) {
         if (is_key_pressed(x_key)) {
             hold_mode = (hold_mode == 0) ? 1 : 0;
             printf("hold_mode toggled to %d\n", hold_mode);
+            if (hold_mode == 0) {
+                printf("\a");
+            }
+            else{
+                printf("\a");
+                Sleep(100);
+                printf("\a");
+            }
             Sleep(200);
         }
         Sleep(10);
     }
 
+}
+
+DWORD WINAPI adjust_color_sens(LPVOID lpParam) {
+    CONFIG* cfg = (CONFIG*)lpParam;
+    int plus_key = get_key_code("plus");
+    int dash_key = get_key_code("dash");
+
+    while (true) {
+        if (is_key_pressed(plus_key)) {
+            cfg->color_sens += 10;
+            printf("color_sens increased to %d\n", cfg->color_sens);
+            Sleep(200);
+        }
+        if (is_key_pressed(dash_key)) {
+            cfg->color_sens -= 10;
+            printf("color_sens decreased to %d\n", cfg->color_sens);
+            Sleep(200);
+        }
+        Sleep(10);
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -60,14 +88,23 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    HANDLE hAdjustThread = CreateThread(NULL, 0, adjust_color_sens, &cfg, 0, NULL);
+    if (hAdjustThread == NULL) {
+        printf("Error: Unable to create adjust_color_sens thread.");
+        printf("\nPress enter to exit: ");
+        getchar();
+        return 1;
+    }
+
+    if (get_key_code(cfg.hold_key) == -1) {
+        printf("The hold_key you choose could not be found");
+        printf("\nPress enter to exit: ");
+        getchar();
+        return 1;
+    }
+
     while (true) {
         start_counter();
-        if (get_key_code(cfg.hold_key) == -1) {
-            printf("The hold_key you choose could not be found");
-            printf("\nPress enter to exit: ");
-            getchar();
-            return 1;
-        }
 
         if (is_key_pressed(w_key) || is_key_pressed(a_key) || is_key_pressed(s_key) || is_key_pressed(d_key)) {
             keys_pressed = true;

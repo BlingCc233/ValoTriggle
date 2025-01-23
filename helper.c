@@ -1,4 +1,11 @@
 #include "helper.h"
+#include <math.h>
+#include <stdbool.h>
+#include <windows.h>
+
+#define PI 3.14159265358979323846
+#define deg2rad(deg) ((deg) * PI / 180.0)
+#define rad2deg(rad) ((rad) * 180.0 / PI)
 
 LARGE_INTEGER frequency, start, end;
 int reaction_count = 0;
@@ -188,7 +195,276 @@ bool is_color_found(DWORD* pPixels, int pixel_count, int red, int green, int blu
             }
         }
     }
+    return false;
+}
 
+typedef struct {
+    double h, s, v;
+} HSV;
+
+HSV rgb_to_hsv(int r, int g, int b) {
+    HSV hsv;
+    double r_p = r / 255.0;
+    double g_p = g / 255.0;
+    double b_p = b / 255.0;
+
+    double c_max = fmax(r_p, fmax(g_p, b_p));
+    double c_min = fmin(r_p, fmin(g_p, b_p));
+    double delta = c_max - c_min;
+
+    // Calculate H
+    if (delta == 0) {
+        hsv.h = 0;
+    } else if (c_max == r_p) {
+        hsv.h = 60 * fmod(((g_p - b_p) / delta), 6);
+    } else if (c_max == g_p) {
+        hsv.h = 60 * (((b_p - r_p) / delta) + 2);
+    } else {
+        hsv.h = 60 * (((r_p - g_p) / delta) + 4);
+    }
+
+    if (hsv.h < 0) hsv.h += 360;
+
+    // Calculate S
+    hsv.s = (c_max == 0) ? 0 : (delta / c_max);
+
+    // Calculate V
+    hsv.v = c_max;
+
+    return hsv;
+}
+
+bool is_color_found_HSV(DWORD* pPixels, int pixel_count, int red, int green, int blue, double tolerance) {
+    HSV target = rgb_to_hsv(red, green, blue);
+
+    for (int i = 0; i < pixel_count; i++) {
+        DWORD pixelColor = pPixels[i];
+        int r = GetRed(pixelColor);
+        int g = GetGreen(pixelColor);
+        int b = GetBlue(pixelColor);
+
+        HSV current = rgb_to_hsv(r, g, b);
+
+        // 计算HSV空间中的距离
+        double h_diff = fmin(fabs(current.h - target.h), 360 - fabs(current.h - target.h)) / 180.0;
+        double s_diff = fabs(current.s - target.s);
+        double v_diff = fabs(current.v - target.v);
+
+        // 综合距离评分（可以调整权重）
+        double distance = sqrt(h_diff * h_diff + s_diff * s_diff + v_diff * v_diff);
+
+        if (distance < tolerance) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Delta E 2000
+/*
+ * threshold: 2 ~ 6
+ */
+
+typedef struct {
+    double l, a, b;
+} Lab;
+
+typedef struct {
+    double x, y, z;
+} XYZ;
+
+// sRGB到XYZ的转换矩阵
+const double SRGB_TO_XYZ[3][3] = {
+        {0.4124564, 0.3575761, 0.1804375},
+        {0.2126729, 0.7151522, 0.0721750},
+        {0.0193339, 0.1191920, 0.9503041}
+};
+
+// 标准白点 D65
+const double WHITE_X = 95.047;
+const double WHITE_Y = 100.000;
+const double WHITE_Z = 108.883;
+
+// Gamma校正
+double gamma_correction(double value) {
+    if (value <= 0.04045) {
+        return value / 12.92;
+    }
+    return pow((value + 0.055) / 1.055, 2.4);
+}
+
+// XYZ到Lab转换辅助函数
+double xyz_to_lab_helper(double value) {
+    if (value > 0.008856) {
+        return pow(value, 1.0/3.0);
+    }
+    return (7.787 * value) + (16.0 / 116.0);
+}
+
+// RGB到XYZ的转换
+XYZ rgb_to_xyz(int r, int g, int b) {
+    double sr = gamma_correction(r / 255.0);
+    double sg = gamma_correction(g / 255.0);
+    double sb = gamma_correction(b / 255.0);
+
+    XYZ xyz;
+    xyz.x = (SRGB_TO_XYZ[0][0] * sr + SRGB_TO_XYZ[0][1] * sg + SRGB_TO_XYZ[0][2] * sb) * WHITE_X;
+    xyz.y = (SRGB_TO_XYZ[1][0] * sr + SRGB_TO_XYZ[1][1] * sg + SRGB_TO_XYZ[1][2] * sb) * WHITE_Y;
+    xyz.z = (SRGB_TO_XYZ[2][0] * sr + SRGB_TO_XYZ[2][1] * sg + SRGB_TO_XYZ[2][2] * sb) * WHITE_Z;
+
+    return xyz;
+}
+
+// XYZ到Lab的转换
+Lab xyz_to_lab(XYZ xyz) {
+    double x = xyz.x / WHITE_X;
+    double y = xyz.y / WHITE_Y;
+    double z = xyz.z / WHITE_Z;
+
+    x = xyz_to_lab_helper(x);
+    y = xyz_to_lab_helper(y);
+    z = xyz_to_lab_helper(z);
+
+    Lab lab;
+    lab.l = (116.0 * y) - 16.0;
+    lab.a = 500.0 * (x - y);
+    lab.b = 200.0 * (y - z);
+
+    return lab;
+}
+
+// RGB到Lab的直接转换
+Lab rgb_to_lab(int r, int g, int b) {
+    XYZ xyz = rgb_to_xyz(r, g, b);
+    return xyz_to_lab(xyz);
+}
+
+// Delta E 2000色差计算
+double delta_e_2000(Lab lab1, Lab lab2) {
+    // 计算C'
+    double c1 = sqrt(lab1.a * lab1.a + lab1.b * lab1.b);
+    double c2 = sqrt(lab2.a * lab2.a + lab2.b * lab2.b);
+    double c_avg = (c1 + c2) / 2.0;
+
+    // 计算G
+    double c_avg_pow7 = pow(c_avg, 7);
+    double g = 0.5 * (1.0 - sqrt(c_avg_pow7 / (c_avg_pow7 + pow(25.0, 7))));
+
+    // 计算a'
+    double a1_prime = lab1.a * (1.0 + g);
+    double a2_prime = lab2.a * (1.0 + g);
+
+    // 计算C'
+    double c1_prime = sqrt(a1_prime * a1_prime + lab1.b * lab1.b);
+    double c2_prime = sqrt(a2_prime * a2_prime + lab2.b * lab2.b);
+
+    // 计算h'
+    double h1_prime = rad2deg(atan2(lab1.b, a1_prime));
+    if (h1_prime < 0) h1_prime += 360;
+    double h2_prime = rad2deg(atan2(lab2.b, a2_prime));
+    if (h2_prime < 0) h2_prime += 360;
+
+    // 计算ΔL', ΔC', ΔH'
+    double delta_l_prime = lab2.l - lab1.l;
+    double delta_c_prime = c2_prime - c1_prime;
+
+    double delta_h_prime;
+    if (c1_prime * c2_prime == 0) {
+        delta_h_prime = 0;
+    } else {
+        if (fabs(h2_prime - h1_prime) <= 180) {
+            delta_h_prime = h2_prime - h1_prime;
+        } else if (h2_prime - h1_prime > 180) {
+            delta_h_prime = h2_prime - h1_prime - 360;
+        } else {
+            delta_h_prime = h2_prime - h1_prime + 360;
+        }
+    }
+    double delta_H_prime = 2.0 * sqrt(c1_prime * c2_prime) * sin(deg2rad(delta_h_prime / 2.0));
+
+    // 计算L', C', H'的加权平均值
+    double l_prime_avg = (lab1.l + lab2.l) / 2.0;
+    double c_prime_avg = (c1_prime + c2_prime) / 2.0;
+
+    double h_prime_avg;
+    if (c1_prime * c2_prime == 0) {
+        h_prime_avg = h1_prime + h2_prime;
+    } else {
+        if (fabs(h1_prime - h2_prime) <= 180) {
+            h_prime_avg = (h1_prime + h2_prime) / 2.0;
+        } else if (h1_prime + h2_prime < 360) {
+            h_prime_avg = (h1_prime + h2_prime + 360) / 2.0;
+        } else {
+            h_prime_avg = (h1_prime + h2_prime - 360) / 2.0;
+        }
+    }
+
+    // 计算T
+    double t = 1.0 - 0.17 * cos(deg2rad(h_prime_avg - 30)) +
+               0.24 * cos(deg2rad(2.0 * h_prime_avg)) +
+               0.32 * cos(deg2rad(3.0 * h_prime_avg + 6.0)) -
+               0.20 * cos(deg2rad(4.0 * h_prime_avg - 63));
+
+    // 计算RT
+    double delta_theta = 30 * exp(-pow((h_prime_avg - 275) / 25, 2));
+    double rc = 2.0 * sqrt(pow(c_prime_avg, 7) / (pow(c_prime_avg, 7) + pow(25.0, 7)));
+    double rt = -sin(deg2rad(2.0 * delta_theta)) * rc;
+
+    // 计算补偿系数
+    double sl = 1.0 + ((0.015 * pow(l_prime_avg - 50, 2)) /
+                       sqrt(20 + pow(l_prime_avg - 50, 2)));
+    double sc = 1.0 + 0.045 * c_prime_avg;
+    double sh = 1.0 + 0.015 * c_prime_avg * t;
+
+    // 计算最终的色差值
+    double delta_l = delta_l_prime / sl;
+    double delta_c = delta_c_prime / sc;
+    double delta_h = delta_H_prime / sh;
+
+    return sqrt(pow(delta_l, 2) + pow(delta_c, 2) + pow(delta_h, 2) +
+                rt * delta_c * delta_h);
+}
+
+// 颜色检测函数
+bool is_color_found_DE(DWORD* pPixels, int pixel_count, int red, int green, int blue, double threshold) {
+    Lab target = rgb_to_lab(red, green, blue);
+
+    for (int i = 0; i < pixel_count; i++) {
+        DWORD pixelColor = pPixels[i];
+        int r = GetRValue(pixelColor);
+        int g = GetGValue(pixelColor);
+        int b = GetBValue(pixelColor);
+
+        Lab current = rgb_to_lab(r, g, b);
+        double difference = delta_e_2000(target, current);
+
+        if (difference < threshold) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool is_color_found_weight(DWORD* pPixels, int pixel_count, int red, int green, int blue, double tolerance) {
+    const double weights[] = {0.299, 0.587, 0.114}; // 人眼感知权重
+
+    for (int i = 0; i < pixel_count; i++) {
+        DWORD pixelColor = pPixels[i];
+        int r = GetRed(pixelColor);
+        int g = GetGreen(pixelColor);
+        int b = GetBlue(pixelColor);
+
+        double diff_r = (r - red) * weights[0];
+        double diff_g = (g - green) * weights[1];
+        double diff_b = (b - blue) * weights[2];
+
+        double total_diff = sqrt(diff_r*diff_r + diff_g*diff_g + diff_b*diff_b);
+
+        if (total_diff < tolerance) {
+            return true;
+        }
+    }
     return false;
 }
 
@@ -265,7 +541,10 @@ int get_key_code(char* input_key) {
         {"f10", 0x79},
         {"f11", 0x7A},
         {"f12", 0x7B},
-        {"tilde", 0x7E}
+        {"tilde", 0x7E},
+        {"plus", 0x2B},
+        {"dash", 0x2D}
+
     };
 
 

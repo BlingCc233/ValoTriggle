@@ -33,4 +33,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: release-executable
-        path: ${{github.workspace}}/build/Trig.exe  # 替换为实际的可执行文件路径
+        path: ${{github.workspace}}\build\Release\source.exe  # 替换为实际的可执行文件路径

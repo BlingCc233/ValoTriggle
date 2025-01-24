@@ -4,18 +4,13 @@
 volatile int hold_mode = 1;
 
 DWORD WINAPI toggle_hold_mode(LPVOID lpParam) {
-    int x_key = get_key_code("tilde");
+    int x_key = get_key_code("f3");
 
     while (true) {
         if (is_key_pressed(x_key)) {
             hold_mode = (hold_mode == 0) ? 1 : 0;
             printf("hold_mode toggled to %d\n", hold_mode);
             if (hold_mode == 0) {
-                printf("\a");
-            }
-            else{
-                printf("\a");
-                Sleep(100);
                 printf("\a");
             }
             Sleep(200);
@@ -27,8 +22,8 @@ DWORD WINAPI toggle_hold_mode(LPVOID lpParam) {
 
 DWORD WINAPI adjust_color_sens(LPVOID lpParam) {
     CONFIG* cfg = (CONFIG*)lpParam;
-    int plus_key = get_key_code("plus");
-    int dash_key = get_key_code("dash");
+    int plus_key = get_key_code("f4");
+    int dash_key = get_key_code("f5");
 
     while (true) {
         if (is_key_pressed(plus_key)) {

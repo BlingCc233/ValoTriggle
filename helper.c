@@ -262,7 +262,7 @@ bool is_color_found_HSV(DWORD* pPixels, int pixel_count, int red, int green, int
 
 // Delta E 2000
 /*
- * threshold: 2 ~ 6
+ * threshold: 0~50
  */
 
 typedef struct {
@@ -540,10 +540,7 @@ int get_key_code(char* input_key) {
         {"f9", 0x78},
         {"f10", 0x79},
         {"f11", 0x7A},
-        {"f12", 0x7B},
-        {"tilde", 0x7E},
-        {"plus", 0x2B},
-        {"dash", 0x2D}
+        {"f12", 0x7B}
 
     };
 

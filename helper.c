@@ -12,40 +12,40 @@ int reaction_count = 0;
 double total_reaction = 0.0;
 
 typedef struct {
-	char key_name[256];
-	int key;
+    char key_name[256];
+    int key;
 } SCAN_CODES;
 
 void disable_quickedit() {
-	HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
     DWORD prevMode;
 
     GetConsoleMode(hInput, &prevMode);
     SetConsoleMode(hInput, prevMode & ~ENABLE_QUICK_EDIT_MODE);
 }
 
-void free_config(CONFIG *pCfg) {
+void free_config(CONFIG* pCfg) {
     free(pCfg->hold_key);
     free(pCfg->target_color);
 }
 
-bool get_config(CONFIG *pCfg) {
+bool get_config(CONFIG* pCfg) {
     pCfg->target_color = get_str("target_color");
-    pCfg->hold_key     = get_str("hold_key");
-    pCfg->scan_area_x  = get_int("scan_area_x");
-    pCfg->scan_area_y  = get_int("scan_area_y");
-    pCfg->color_sens   = get_int("color_sens");
-    pCfg->tap_time     = get_float("tap_time");;
-    pCfg->hold_mode     = get_int("hold_mode");
-    pCfg->key_up_rec_time     = get_int("key_up_rec_time");
+    pCfg->hold_key = get_str("hold_key");
+    pCfg->scan_area_x = get_int("scan_area_x");
+    pCfg->scan_area_y = get_int("scan_area_y");
+    pCfg->color_sens = get_int("color_sens");
+    pCfg->tap_time = get_float("tap_time");;
+    pCfg->hold_mode = get_int("hold_mode");
+    pCfg->key_up_rec_time = get_int("key_up_rec_time");
 
 
     if (pCfg->scan_area_x == -1 ||
-    	pCfg->scan_area_y == -1 ||
-        pCfg->color_sens == -1  ||
-        pCfg->tap_time == -1 	||
-        pCfg->hold_key == 0 	||
-        pCfg->hold_mode == -1   ||
+        pCfg->scan_area_y == -1 ||
+        pCfg->color_sens == -1 ||
+        pCfg->tap_time == -1 ||
+        pCfg->hold_key == 0 ||
+        pCfg->hold_mode == -1 ||
         pCfg->target_color == 0)
     {
         return false;
@@ -55,15 +55,15 @@ bool get_config(CONFIG *pCfg) {
 }
 
 
-unsigned int *get_screenshot(const char *save_name, int crop_width, int crop_height) {
-    unsigned int *pixels = 0;
+unsigned int* get_screenshot(const char* save_name, int crop_width, int crop_height) {
+    unsigned int* pixels = 0;
     HDC mem_dc = 0;
-    FILE *file = 0;
+    FILE* file = 0;
 
     HDC screen_dc = GetDC(0);
     HBITMAP bitmap = 0;
-    BITMAP bmp = {0};
-    BITMAPFILEHEADER bmp_file_header = {0};
+    BITMAP bmp = { 0 };
+    BITMAPFILEHEADER bmp_file_header = { 0 };
 
     if (screen_dc == 0) {
         printf("ERROR: GetDC() failed!");
@@ -115,7 +115,7 @@ unsigned int *get_screenshot(const char *save_name, int crop_width, int crop_hei
     /* Create bitmap file header */
     bmp_file_header.bfType = 0x4D42; /* BM */
     bmp_file_header.bfSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) +
-                             bmp.bmWidthBytes * crop_height;
+        bmp.bmWidthBytes * crop_height;
     bmp_file_header.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
 
     /* Create bitmap info header */
@@ -146,7 +146,7 @@ unsigned int *get_screenshot(const char *save_name, int crop_width, int crop_hei
     }
 
     /* Allocate buffer for bitmap data */
-    pixels = (unsigned int *)malloc(bmp.bmWidthBytes * crop_height);
+    pixels = (unsigned int*)malloc(bmp.bmWidthBytes * crop_height);
 
     if (!pixels) {
         printf("ERROR: malloc() failed!");
@@ -157,7 +157,7 @@ unsigned int *get_screenshot(const char *save_name, int crop_width, int crop_hei
     }
 
     /* Get bitmap data */
-    if (GetDIBits(mem_dc, bitmap, 0, crop_height, pixels, (BITMAPINFO *)&bmp_info_header, DIB_RGB_COLORS) == 0) {
+    if (GetDIBits(mem_dc, bitmap, 0, crop_height, pixels, (BITMAPINFO*)&bmp_info_header, DIB_RGB_COLORS) == 0) {
         printf("ERROR: GetDIBits() failed!");
         ReleaseDC(0, screen_dc);
         DeleteDC(mem_dc);
@@ -215,11 +215,14 @@ HSV rgb_to_hsv(int r, int g, int b) {
     // Calculate H
     if (delta == 0) {
         hsv.h = 0;
-    } else if (c_max == r_p) {
+    }
+    else if (c_max == r_p) {
         hsv.h = 60 * fmod(((g_p - b_p) / delta), 6);
-    } else if (c_max == g_p) {
+    }
+    else if (c_max == g_p) {
         hsv.h = 60 * (((b_p - r_p) / delta) + 2);
-    } else {
+    }
+    else {
         hsv.h = 60 * (((r_p - g_p) / delta) + 4);
     }
 
@@ -262,216 +265,110 @@ bool is_color_found_HSV(DWORD* pPixels, int pixel_count, int red, int green, int
 
 // Delta E 2000
 /*
- * threshold: 0~50
+ * threshold: 2 ~ 6
  */
 
-typedef struct {
-    double l, a, b;
-} Lab;
 
-typedef struct {
-    double x, y, z;
-} XYZ;
-
-// sRGB到XYZ的转换矩阵
-const double SRGB_TO_XYZ[3][3] = {
-        {0.4124564, 0.3575761, 0.1804375},
-        {0.2126729, 0.7151522, 0.0721750},
-        {0.0193339, 0.1191920, 0.9503041}
-};
-
-// 标准白点 D65
-const double WHITE_X = 95.047;
-const double WHITE_Y = 100.000;
-const double WHITE_Z = 108.883;
-
-// Gamma校正
-double gamma_correction(double value) {
-    if (value <= 0.04045) {
-        return value / 12.92;
-    }
-    return pow((value + 0.055) / 1.055, 2.4);
-}
-
-// XYZ到Lab转换辅助函数
-double xyz_to_lab_helper(double value) {
-    if (value > 0.008856) {
-        return pow(value, 1.0/3.0);
-    }
-    return (7.787 * value) + (16.0 / 116.0);
-}
-
-// RGB到XYZ的转换
-XYZ rgb_to_xyz(int r, int g, int b) {
-    double sr = gamma_correction(r / 255.0);
-    double sg = gamma_correction(g / 255.0);
-    double sb = gamma_correction(b / 255.0);
-
-    XYZ xyz;
-    xyz.x = (SRGB_TO_XYZ[0][0] * sr + SRGB_TO_XYZ[0][1] * sg + SRGB_TO_XYZ[0][2] * sb) * WHITE_X;
-    xyz.y = (SRGB_TO_XYZ[1][0] * sr + SRGB_TO_XYZ[1][1] * sg + SRGB_TO_XYZ[1][2] * sb) * WHITE_Y;
-    xyz.z = (SRGB_TO_XYZ[2][0] * sr + SRGB_TO_XYZ[2][1] * sg + SRGB_TO_XYZ[2][2] * sb) * WHITE_Z;
-
-    return xyz;
-}
-
-// XYZ到Lab的转换
-Lab xyz_to_lab(XYZ xyz) {
-    double x = xyz.x / WHITE_X;
-    double y = xyz.y / WHITE_Y;
-    double z = xyz.z / WHITE_Z;
-
-    x = xyz_to_lab_helper(x);
-    y = xyz_to_lab_helper(y);
-    z = xyz_to_lab_helper(z);
-
-    Lab lab;
-    lab.l = (116.0 * y) - 16.0;
-    lab.a = 500.0 * (x - y);
-    lab.b = 200.0 * (y - z);
-
-    return lab;
-}
-
-// RGB到Lab的直接转换
-Lab rgb_to_lab(int r, int g, int b) {
-    XYZ xyz = rgb_to_xyz(r, g, b);
-    return xyz_to_lab(xyz);
-}
-
-// Delta E 2000色差计算
-double delta_e_2000(Lab lab1, Lab lab2) {
-    // 计算C'
-    double c1 = sqrt(lab1.a * lab1.a + lab1.b * lab1.b);
-    double c2 = sqrt(lab2.a * lab2.a + lab2.b * lab2.b);
-    double c_avg = (c1 + c2) / 2.0;
-
-    // 计算G
-    double c_avg_pow7 = pow(c_avg, 7);
-    double g = 0.5 * (1.0 - sqrt(c_avg_pow7 / (c_avg_pow7 + pow(25.0, 7))));
-
-    // 计算a'
-    double a1_prime = lab1.a * (1.0 + g);
-    double a2_prime = lab2.a * (1.0 + g);
-
-    // 计算C'
-    double c1_prime = sqrt(a1_prime * a1_prime + lab1.b * lab1.b);
-    double c2_prime = sqrt(a2_prime * a2_prime + lab2.b * lab2.b);
-
-    // 计算h'
-    double h1_prime = rad2deg(atan2(lab1.b, a1_prime));
-    if (h1_prime < 0) h1_prime += 360;
-    double h2_prime = rad2deg(atan2(lab2.b, a2_prime));
-    if (h2_prime < 0) h2_prime += 360;
-
-    // 计算ΔL', ΔC', ΔH'
-    double delta_l_prime = lab2.l - lab1.l;
-    double delta_c_prime = c2_prime - c1_prime;
-
-    double delta_h_prime;
-    if (c1_prime * c2_prime == 0) {
-        delta_h_prime = 0;
-    } else {
-        if (fabs(h2_prime - h1_prime) <= 180) {
-            delta_h_prime = h2_prime - h1_prime;
-        } else if (h2_prime - h1_prime > 180) {
-            delta_h_prime = h2_prime - h1_prime - 360;
-        } else {
-            delta_h_prime = h2_prime - h1_prime + 360;
-        }
-    }
-    double delta_H_prime = 2.0 * sqrt(c1_prime * c2_prime) * sin(deg2rad(delta_h_prime / 2.0));
-
-    // 计算L', C', H'的加权平均值
-    double l_prime_avg = (lab1.l + lab2.l) / 2.0;
-    double c_prime_avg = (c1_prime + c2_prime) / 2.0;
-
-    double h_prime_avg;
-    if (c1_prime * c2_prime == 0) {
-        h_prime_avg = h1_prime + h2_prime;
-    } else {
-        if (fabs(h1_prime - h2_prime) <= 180) {
-            h_prime_avg = (h1_prime + h2_prime) / 2.0;
-        } else if (h1_prime + h2_prime < 360) {
-            h_prime_avg = (h1_prime + h2_prime + 360) / 2.0;
-        } else {
-            h_prime_avg = (h1_prime + h2_prime - 360) / 2.0;
-        }
-    }
-
-    // 计算T
-    double t = 1.0 - 0.17 * cos(deg2rad(h_prime_avg - 30)) +
-               0.24 * cos(deg2rad(2.0 * h_prime_avg)) +
-               0.32 * cos(deg2rad(3.0 * h_prime_avg + 6.0)) -
-               0.20 * cos(deg2rad(4.0 * h_prime_avg - 63));
-
-    // 计算RT
-    double delta_theta = 30 * exp(-pow((h_prime_avg - 275) / 25, 2));
-    double rc = 2.0 * sqrt(pow(c_prime_avg, 7) / (pow(c_prime_avg, 7) + pow(25.0, 7)));
-    double rt = -sin(deg2rad(2.0 * delta_theta)) * rc;
-
-    // 计算补偿系数
-    double sl = 1.0 + ((0.015 * pow(l_prime_avg - 50, 2)) /
-                       sqrt(20 + pow(l_prime_avg - 50, 2)));
-    double sc = 1.0 + 0.045 * c_prime_avg;
-    double sh = 1.0 + 0.015 * c_prime_avg * t;
-
-    // 计算最终的色差值
-    double delta_l = delta_l_prime / sl;
-    double delta_c = delta_c_prime / sc;
-    double delta_h = delta_H_prime / sh;
-
-    return sqrt(pow(delta_l, 2) + pow(delta_c, 2) + pow(delta_h, 2) +
-                rt * delta_c * delta_h);
-}
-
-// 颜色检测函数
 bool is_color_found_DE(DWORD* pPixels, int pixel_count, int red, int green, int blue, double threshold) {
-    Lab target = rgb_to_lab(red, green, blue);
+    double total_deltaE = 0.0;
+    int white_pixel_count = 0;
+    const int WHITE_THRESHOLD = 240; // RGB都超过这个值认为接近白色
+    const double MAX_WHITE_RATIO = 0.6; // 白色像素比例超过这个值就返回false
 
-    for (int i = 0; i < pixel_count; i++) {
-        DWORD pixelColor = pPixels[i];
-        int r = GetRValue(pixelColor);
-        int g = GetGValue(pixelColor);
-        int b = GetBValue(pixelColor);
+    // 预先计算目标颜色的Lab值
+    double r = red / 255.0;
+    double g = green / 255.0;
+    double b = blue / 255.0;
 
-        Lab current = rgb_to_lab(r, g, b);
-        double difference = delta_e_2000(target, current);
+    r = (r > 0.04045) ? pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+    g = (g > 0.04045) ? pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+    b = (b > 0.04045) ? pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
 
-        if (difference < threshold) {
-            return true;
+    r *= 100.0;
+    g *= 100.0;
+    b *= 100.0;
+
+    double X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+    double Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+    double Z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+
+    X /= 95.047;
+    Y /= 100.000;
+    Z /= 108.883;
+
+    X = (X > 0.008856) ? pow(X, 1.0/3.0) : (7.787 * X + 16.0/116.0);
+    Y = (Y > 0.008856) ? pow(Y, 1.0/3.0) : (7.787 * Y + 16.0/116.0);
+    Z = (Z > 0.008856) ? pow(Z, 1.0/3.0) : (7.787 * Z + 16.0/116.0);
+
+    double L2 = (116.0 * Y) - 16.0;
+    double a2 = 500.0 * (X - Y);
+    double b2 = 200.0 * (Y - Z);
+
+    // 遍历像素
+    for(int i = 0; i < pixel_count; i++) {
+        int curr_blue = pPixels[i] & 0xFF;
+        int curr_green = (pPixels[i] >> 8) & 0xFF;
+        int curr_red = (pPixels[i] >> 16) & 0xFF;
+
+        // 检查是否接近白色
+        if(curr_red > WHITE_THRESHOLD &&
+           curr_green > WHITE_THRESHOLD &&
+           curr_blue > WHITE_THRESHOLD) {
+            white_pixel_count++;
         }
+
+        // RGB到XYZ
+        r = curr_red / 255.0;
+        g = curr_green / 255.0;
+        b = curr_blue / 255.0;
+
+        r = (r > 0.04045) ? pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+        g = (g > 0.04045) ? pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+        b = (b > 0.04045) ? pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+
+        r *= 100.0;
+        g *= 100.0;
+        b *= 100.0;
+
+        X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+        Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+        Z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+
+        X /= 95.047;
+        Y /= 100.000;
+        Z /= 108.883;
+
+        X = (X > 0.008856) ? pow(X, 1.0/3.0) : (7.787 * X + 16.0/116.0);
+        Y = (Y > 0.008856) ? pow(Y, 1.0/3.0) : (7.787 * Y + 16.0/116.0);
+        Z = (Z > 0.008856) ? pow(Z, 1.0/3.0) : (7.787 * Z + 16.0/116.0);
+
+        double L1 = (116.0 * Y) - 16.0;
+        double a1 = 500.0 * (X - Y);
+        double b1 = 200.0 * (Y - Z);
+
+        double deltaL = L1 - L2;
+        double deltaA = a1 - a2;
+        double deltaB = b1 - b2;
+
+        total_deltaE += sqrt(deltaL*deltaL + deltaA*deltaA + deltaB*deltaB);
     }
-    return false;
+
+    // 检查白色像素比例
+    double white_ratio = (double)white_pixel_count / pixel_count;
+    if(white_ratio > MAX_WHITE_RATIO) {
+        return false;
+    }
+
+    // 计算非白色像素的平均色差
+    double avg_deltaE = total_deltaE / (pixel_count - white_pixel_count);
+    return avg_deltaE < threshold;
 }
 
-
-bool is_color_found_weight(DWORD* pPixels, int pixel_count, int red, int green, int blue, double tolerance) {
-    const double weights[] = {0.299, 0.587, 0.114}; // 人眼感知权重
-
-    for (int i = 0; i < pixel_count; i++) {
-        DWORD pixelColor = pPixels[i];
-        int r = GetRed(pixelColor);
-        int g = GetGreen(pixelColor);
-        int b = GetBlue(pixelColor);
-
-        double diff_r = (r - red) * weights[0];
-        double diff_g = (g - green) * weights[1];
-        double diff_b = (b - blue) * weights[2];
-
-        double total_diff = sqrt(diff_r*diff_r + diff_g*diff_g + diff_b*diff_b);
-
-        if (total_diff < tolerance) {
-            return true;
-        }
-    }
-    return false;
-}
 
 int get_key_code(char* input_key) {
 
-	SCAN_CODES keys[] =
-	{
+    SCAN_CODES keys[] =
+    {
         {"left_mouse_button", 0x01},
         {"right_mouse_button", 0x02},
         {"x1", 0x05},
@@ -547,15 +444,15 @@ int get_key_code(char* input_key) {
 
     int num_keys = sizeof(keys) / sizeof(keys[0]);
 
-    for(int i = 0; i < num_keys; i++) {
-        if(strcmp(keys[i].key_name, input_key) == 0 ) {
+    for (int i = 0; i < num_keys; i++) {
+        if (strcmp(keys[i].key_name, input_key) == 0) {
             return keys[i].key;
         }
     }
     return -1;
 }
 
-bool get_valorant_colors(const char* pColor, int *pRed, int *pGreen, int *pBlue) {
+bool get_valorant_colors(const char* pColor, int* pRed, int* pGreen, int* pBlue) {
     if (strcmp(pColor, "purple") == 0) {
         *pRed = 250;
         *pGreen = 100;
@@ -592,7 +489,7 @@ char* get_str(char* key_name) {
             fprintf(file, "hold_mode=1\n");
             fprintf(file, "hold_key=left_shift\n");
             fprintf(file, "target_color=purple\n");
-            fprintf(file, "color_sens=130\n");
+            fprintf(file, "color_sens=85\n");
             fprintf(file, "tap_time=320\n");
             fprintf(file, "scan_area_x=8\n");
             fprintf(file, "scan_area_y=8\n");
@@ -638,31 +535,31 @@ char* get_str(char* key_name) {
 
 
 int get_int(char* key_name) {
-    char *str = get_str(key_name);
+    char* str = get_str(key_name);
     if (str == 0) {
         return -1;
     }
     int ret = atoi(str);
-	free(str);
+    free(str);
     return ret;
 }
 
 double get_float(char* key_name) {
-	double dnum = 0;
-	char* str = get_str(key_name);
-	if (str == 0) {
-		return -1;
-	}
-	char local_value[256];
-	strcpy(local_value, str);
-	sscanf(local_value, "%lf", &dnum);
-	free(str);
-	return dnum;
+    double dnum = 0;
+    char* str = get_str(key_name);
+    if (str == 0) {
+        return -1;
+    }
+    char local_value[256];
+    strcpy(local_value, str);
+    sscanf(local_value, "%lf", &dnum);
+    free(str);
+    return dnum;
 }
 
 double get_reaction_average(double total_reaction, int reaction_count) {
-	return total_reaction / reaction_count;
-} 
+    return total_reaction / reaction_count;
+}
 
 void init_performance_counters() {
     QueryPerformanceFrequency(&frequency);
@@ -682,7 +579,7 @@ void stop_counter() {
 }
 
 void left_click() {
-//    mouse_event(MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+    //    mouse_event(MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
 
     keybd_event(get_key_code("k"), 0, 0, 0);        // Press 'K'
     Sleep(187);
@@ -690,7 +587,7 @@ void left_click() {
 }
 
 bool is_key_pressed(int hold_key) {
-	return GetAsyncKeyState(hold_key) & 0x8000;
+    return GetAsyncKeyState(hold_key) & 0x8000;
 }
 
 
@@ -708,4 +605,3 @@ void print_logo() {
     printf("==================================================\n");
     printf("\n");
 }
-

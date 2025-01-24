@@ -248,12 +248,12 @@ bool is_color_found_HSV(DWORD* pPixels, int pixel_count, int red, int green, int
 
         HSV current = rgb_to_hsv(r, g, b);
 
-        // ¼ÆËãHSV¿Õ¼äÖĞµÄ¾àÀë
+        // è®¡ç®—HSVç©ºé—´ä¸­çš„è·ç¦»
         double h_diff = fmin(fabs(current.h - target.h), 360 - fabs(current.h - target.h)) / 180.0;
         double s_diff = fabs(current.s - target.s);
         double v_diff = fabs(current.v - target.v);
 
-        // ×ÛºÏ¾àÀëÆÀ·Ö£¨¿ÉÒÔµ÷ÕûÈ¨ÖØ£©
+        // ç»¼åˆè·ç¦»è¯„åˆ†ï¼ˆå¯ä»¥è°ƒæ•´æƒé‡ï¼‰
         double distance = sqrt(h_diff * h_diff + s_diff * s_diff + v_diff * v_diff);
 
         if (distance < tolerance) {
@@ -276,19 +276,19 @@ typedef struct {
     double x, y, z;
 } XYZ;
 
-// sRGBµ½XYZµÄ×ª»»¾ØÕó
+// sRGBåˆ°XYZçš„è½¬æ¢çŸ©é˜µ
 const double SRGB_TO_XYZ[3][3] = {
         {0.4124564, 0.3575761, 0.1804375},
         {0.2126729, 0.7151522, 0.0721750},
         {0.0193339, 0.1191920, 0.9503041}
 };
 
-// ±ê×¼°×µã D65
+// æ ‡å‡†ç™½ç‚¹ D65
 const double WHITE_X = 95.047;
 const double WHITE_Y = 100.000;
 const double WHITE_Z = 108.883;
 
-// GammaĞ£Õı
+// Gammaæ ¡æ­£
 double gamma_correction(double value) {
     if (value <= 0.04045) {
         return value / 12.92;
@@ -296,7 +296,7 @@ double gamma_correction(double value) {
     return pow((value + 0.055) / 1.055, 2.4);
 }
 
-// XYZµ½Lab×ª»»¸¨Öúº¯Êı
+// XYZåˆ°Labè½¬æ¢è¾…åŠ©å‡½æ•°
 double xyz_to_lab_helper(double value) {
     if (value > 0.008856) {
         return pow(value, 1.0/3.0);
@@ -304,7 +304,7 @@ double xyz_to_lab_helper(double value) {
     return (7.787 * value) + (16.0 / 116.0);
 }
 
-// RGBµ½XYZµÄ×ª»»
+// RGBåˆ°XYZçš„è½¬æ¢
 XYZ rgb_to_xyz(int r, int g, int b) {
     double sr = gamma_correction(r / 255.0);
     double sg = gamma_correction(g / 255.0);
@@ -318,7 +318,7 @@ XYZ rgb_to_xyz(int r, int g, int b) {
     return xyz;
 }
 
-// XYZµ½LabµÄ×ª»»
+// XYZåˆ°Labçš„è½¬æ¢
 Lab xyz_to_lab(XYZ xyz) {
     double x = xyz.x / WHITE_X;
     double y = xyz.y / WHITE_Y;
@@ -336,38 +336,38 @@ Lab xyz_to_lab(XYZ xyz) {
     return lab;
 }
 
-// RGBµ½LabµÄÖ±½Ó×ª»»
+// RGBåˆ°Labçš„ç›´æ¥è½¬æ¢
 Lab rgb_to_lab(int r, int g, int b) {
     XYZ xyz = rgb_to_xyz(r, g, b);
     return xyz_to_lab(xyz);
 }
 
-// Delta E 2000É«²î¼ÆËã
+// Delta E 2000è‰²å·®è®¡ç®—
 double delta_e_2000(Lab lab1, Lab lab2) {
-    // ¼ÆËãC'
+    // è®¡ç®—C'
     double c1 = sqrt(lab1.a * lab1.a + lab1.b * lab1.b);
     double c2 = sqrt(lab2.a * lab2.a + lab2.b * lab2.b);
     double c_avg = (c1 + c2) / 2.0;
 
-    // ¼ÆËãG
+    // è®¡ç®—G
     double c_avg_pow7 = pow(c_avg, 7);
     double g = 0.5 * (1.0 - sqrt(c_avg_pow7 / (c_avg_pow7 + pow(25.0, 7))));
 
-    // ¼ÆËãa'
+    // è®¡ç®—a'
     double a1_prime = lab1.a * (1.0 + g);
     double a2_prime = lab2.a * (1.0 + g);
 
-    // ¼ÆËãC'
+    // è®¡ç®—C'
     double c1_prime = sqrt(a1_prime * a1_prime + lab1.b * lab1.b);
     double c2_prime = sqrt(a2_prime * a2_prime + lab2.b * lab2.b);
 
-    // ¼ÆËãh'
+    // è®¡ç®—h'
     double h1_prime = rad2deg(atan2(lab1.b, a1_prime));
     if (h1_prime < 0) h1_prime += 360;
     double h2_prime = rad2deg(atan2(lab2.b, a2_prime));
     if (h2_prime < 0) h2_prime += 360;
 
-    // ¼ÆËã¦¤L', ¦¤C', ¦¤H'
+    // è®¡ç®—Î”L', Î”C', Î”H'
     double delta_l_prime = lab2.l - lab1.l;
     double delta_c_prime = c2_prime - c1_prime;
 
@@ -385,7 +385,7 @@ double delta_e_2000(Lab lab1, Lab lab2) {
     }
     double delta_H_prime = 2.0 * sqrt(c1_prime * c2_prime) * sin(deg2rad(delta_h_prime / 2.0));
 
-    // ¼ÆËãL', C', H'µÄ¼ÓÈ¨Æ½¾ùÖµ
+    // è®¡ç®—L', C', H'çš„åŠ æƒå¹³å‡å€¼
     double l_prime_avg = (lab1.l + lab2.l) / 2.0;
     double c_prime_avg = (c1_prime + c2_prime) / 2.0;
 
@@ -402,24 +402,24 @@ double delta_e_2000(Lab lab1, Lab lab2) {
         }
     }
 
-    // ¼ÆËãT
+    // è®¡ç®—T
     double t = 1.0 - 0.17 * cos(deg2rad(h_prime_avg - 30)) +
                0.24 * cos(deg2rad(2.0 * h_prime_avg)) +
                0.32 * cos(deg2rad(3.0 * h_prime_avg + 6.0)) -
                0.20 * cos(deg2rad(4.0 * h_prime_avg - 63));
 
-    // ¼ÆËãRT
+    // è®¡ç®—RT
     double delta_theta = 30 * exp(-pow((h_prime_avg - 275) / 25, 2));
     double rc = 2.0 * sqrt(pow(c_prime_avg, 7) / (pow(c_prime_avg, 7) + pow(25.0, 7)));
     double rt = -sin(deg2rad(2.0 * delta_theta)) * rc;
 
-    // ¼ÆËã²¹³¥ÏµÊı
+    // è®¡ç®—è¡¥å¿ç³»æ•°
     double sl = 1.0 + ((0.015 * pow(l_prime_avg - 50, 2)) /
                        sqrt(20 + pow(l_prime_avg - 50, 2)));
     double sc = 1.0 + 0.045 * c_prime_avg;
     double sh = 1.0 + 0.015 * c_prime_avg * t;
 
-    // ¼ÆËã×îÖÕµÄÉ«²îÖµ
+    // è®¡ç®—æœ€ç»ˆçš„è‰²å·®å€¼
     double delta_l = delta_l_prime / sl;
     double delta_c = delta_c_prime / sc;
     double delta_h = delta_H_prime / sh;
@@ -428,12 +428,12 @@ double delta_e_2000(Lab lab1, Lab lab2) {
                 rt * delta_c * delta_h);
 }
 
-// ÑÕÉ«¼ì²âº¯Êı
+// é¢œè‰²æ£€æµ‹å‡½æ•°
 bool is_color_found_DE_single(DWORD* pPixels, int pixel_count, int red, int green, int blue, double threshold) {
-    // ¼ÆËãÔ­Ê¼·½ÕóµÄ±ß³¤
+    // è®¡ç®—åŸå§‹æ–¹é˜µçš„è¾¹é•¿
     int side_length = (int)sqrt(pixel_count);
 
-    // ¼ÆËãÖĞĞÄ6x6ÇøÓòµÄ±ß½ç
+    // è®¡ç®—ä¸­å¿ƒ6x6åŒºåŸŸçš„è¾¹ç•Œ
     int center_start = side_length/2 - 3;
     int center_end = center_start + 6;
 
@@ -446,10 +446,10 @@ bool is_color_found_DE_single(DWORD* pPixels, int pixel_count, int red, int gree
 
     Lab target = rgb_to_lab(red, green, blue);
 
-    // ÏÈÍ³¼Æ°×É«ÏñËØ
+    // å…ˆç»Ÿè®¡ç™½è‰²åƒç´ 
     for(int row = 0; row < side_length; row++) {
         for(int col = 0; col < side_length; col++) {
-            // Ìø¹ıÖĞĞÄ6x6ÇøÓò
+            // è·³è¿‡ä¸­å¿ƒ6x6åŒºåŸŸ
             if(row >= center_start && row < center_end &&
                col >= center_start && col < center_end) {
                 continue;
@@ -470,7 +470,7 @@ bool is_color_found_DE_single(DWORD* pPixels, int pixel_count, int red, int gree
         }
     }
 
-    // ¼ì²é°×É«ÏñËØ±ÈÀı
+    // æ£€æŸ¥ç™½è‰²åƒç´ æ¯”ä¾‹
     double white_ratio = (double)white_pixel_count / valid_pixel_count;
     if(white_ratio > MAX_WHITE_RATIO) {
         return false;
@@ -478,10 +478,10 @@ bool is_color_found_DE_single(DWORD* pPixels, int pixel_count, int red, int gree
 
     int target_count = 0;
 
-    // ÔÙ¼ì²éÑÕÉ«Æ¥Åä
+    // å†æ£€æŸ¥é¢œè‰²åŒ¹é…
     for(int row = 0; row < side_length; row++) {
         for(int col = 0; col < side_length; col++) {
-            // Ìø¹ıÖĞĞÄ6x6ÇøÓò
+            // è·³è¿‡ä¸­å¿ƒ6x6åŒºåŸŸ
             if(row >= center_start && row < center_end &&
                col >= center_start && col < center_end) {
                 continue;
@@ -511,20 +511,20 @@ bool is_color_found_DE_single(DWORD* pPixels, int pixel_count, int red, int gree
 
 
 bool is_color_found_DE(DWORD* pPixels, int pixel_count, int red, int green, int blue, double threshold) {
-    // ¼ÆËãÔ­Ê¼·½ÕóµÄ±ß³¤
+    // è®¡ç®—åŸå§‹æ–¹é˜µçš„è¾¹é•¿
     int side_length = (int)sqrt(pixel_count);
 
     double total_deltaE = 0.0;
     int white_pixel_count = 0;
-    int valid_pixel_count = 0; // ÓÃÓÚÍ³¼Æ²ÎÓë¼ÆËãµÄÓĞĞ§ÏñËØÊı
+    int valid_pixel_count = 0; // ç”¨äºç»Ÿè®¡å‚ä¸è®¡ç®—çš„æœ‰æ•ˆåƒç´ æ•°
     const int WHITE_THRESHOLD = 240;
     const double MAX_WHITE_RATIO = 0.6;
 
-    // ¼ÆËãÖĞĞÄ6x6ÇøÓòµÄ±ß½ç
+    // è®¡ç®—ä¸­å¿ƒ6x6åŒºåŸŸçš„è¾¹ç•Œ
     int center_start = side_length/2 - 3;
     int center_end = center_start + 6;
 
-    // Ô¤ÏÈ¼ÆËãÄ¿±êÑÕÉ«µÄLabÖµ
+    // é¢„å…ˆè®¡ç®—ç›®æ ‡é¢œè‰²çš„Labå€¼
     double r = red / 255.0;
     double g = green / 255.0;
     double b = blue / 255.0;
@@ -553,10 +553,10 @@ bool is_color_found_DE(DWORD* pPixels, int pixel_count, int red, int green, int 
     double a2 = 500.0 * (X - Y);
     double b2 = 200.0 * (Y - Z);
 
-    // ±éÀúÏñËØ
+    // éå†åƒç´ 
     for(int row = 0; row < side_length; row++) {
         for(int col = 0; col < side_length; col++) {
-            // Ìø¹ıÖĞĞÄ6x6ÇøÓò
+            // è·³è¿‡ä¸­å¿ƒ6x6åŒºåŸŸ
             if(row >= center_start && row < center_end &&
                col >= center_start && col < center_end) {
                 continue;
@@ -569,14 +569,14 @@ bool is_color_found_DE(DWORD* pPixels, int pixel_count, int red, int green, int 
             int curr_green = (pPixels[i] >> 8) & 0xFF;
             int curr_red = (pPixels[i] >> 16) & 0xFF;
 
-            // ¼ì²éÊÇ·ñ½Ó½ü°×É«
+            // æ£€æŸ¥æ˜¯å¦æ¥è¿‘ç™½è‰²
             if(curr_red > WHITE_THRESHOLD &&
                curr_green > WHITE_THRESHOLD &&
                curr_blue > WHITE_THRESHOLD) {
                 white_pixel_count++;
             }
 
-            // RGBµ½XYZ
+            // RGBåˆ°XYZ
             r = curr_red / 255.0;
             g = curr_green / 255.0;
             b = curr_blue / 255.0;
@@ -613,13 +613,13 @@ bool is_color_found_DE(DWORD* pPixels, int pixel_count, int red, int green, int 
         }
     }
 
-    // ¼ì²é°×É«ÏñËØ±ÈÀı
+    // æ£€æŸ¥ç™½è‰²åƒç´ æ¯”ä¾‹
     double white_ratio = (double)white_pixel_count / valid_pixel_count;
     if(white_ratio > MAX_WHITE_RATIO) {
         return false;
     }
 
-    // ¼ÆËã·Ç°×É«ÏñËØµÄÆ½¾ùÉ«²î
+    // è®¡ç®—éç™½è‰²åƒç´ çš„å¹³å‡è‰²å·®
     double avg_deltaE = total_deltaE / (valid_pixel_count);
     return avg_deltaE < threshold;
 }
@@ -866,7 +866,7 @@ void print_logo() {
     printf("==================================================\n");
     printf("\n");
     printf("==================================================\n");
-    printf("Version 1.4                     \n");
+    printf("Version 2.1                     \n");
     printf("Triggerbot is running successfully!    \n");
     printf("==================================================\n");
     printf("\n");

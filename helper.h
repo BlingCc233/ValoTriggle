@@ -13,11 +13,11 @@
 
 typedef struct {
     char* target_color;
-    char *hold_key;
+    char* hold_key;
     int scan_area_x;
     int scan_area_y;
     int color_sens;
-	int tap_time;
+    int tap_time;
     int hold_mode;
     int key_up_rec_time;
 } CONFIG;
@@ -39,9 +39,8 @@ void stop_counter();
 void left_click();
 bool is_key_pressed(int hold_key);
 void print_logo();
-bool is_color_found_HSV(DWORD* pPixels, int pixel_count, int red, int green, int blue, double tolerance);
+bool is_color_found_DE_single(DWORD* pPixels, int pixel_count, int red, int green, int blue, double tolerance);
 bool is_color_found_DE(DWORD* pPixels, int pixel_count, int red, int green, int blue, double threshold);
-bool is_color_found_weight(DWORD* pPixels, int pixel_count, int red, int green, int blue, double tolerance);
 
 
 #endif

@@ -248,12 +248,12 @@ bool is_color_found_HSV(DWORD* pPixels, int pixel_count, int red, int green, int
 
         HSV current = rgb_to_hsv(r, g, b);
 
-        // è®¡ç®—HSVç©ºé—´ä¸­çš„è·ç¦»
+        // ¼ÆËãHSV¿Õ¼äÖĞµÄ¾àÀë
         double h_diff = fmin(fabs(current.h - target.h), 360 - fabs(current.h - target.h)) / 180.0;
         double s_diff = fabs(current.s - target.s);
         double v_diff = fabs(current.v - target.v);
 
-        // ç»¼åˆè·ç¦»è¯„åˆ†ï¼ˆå¯ä»¥è°ƒæ•´æƒé‡ï¼‰
+        // ×ÛºÏ¾àÀëÆÀ·Ö£¨¿ÉÒÔµ÷ÕûÈ¨ÖØ£©
         double distance = sqrt(h_diff * h_diff + s_diff * s_diff + v_diff * v_diff);
 
         if (distance < tolerance) {
@@ -268,14 +268,263 @@ bool is_color_found_HSV(DWORD* pPixels, int pixel_count, int red, int green, int
  * threshold: 2 ~ 6
  */
 
+typedef struct {
+    double l, a, b;
+} Lab;
+
+typedef struct {
+    double x, y, z;
+} XYZ;
+
+// sRGBµ½XYZµÄ×ª»»¾ØÕó
+const double SRGB_TO_XYZ[3][3] = {
+        {0.4124564, 0.3575761, 0.1804375},
+        {0.2126729, 0.7151522, 0.0721750},
+        {0.0193339, 0.1191920, 0.9503041}
+};
+
+// ±ê×¼°×µã D65
+const double WHITE_X = 95.047;
+const double WHITE_Y = 100.000;
+const double WHITE_Z = 108.883;
+
+// GammaĞ£Õı
+double gamma_correction(double value) {
+    if (value <= 0.04045) {
+        return value / 12.92;
+    }
+    return pow((value + 0.055) / 1.055, 2.4);
+}
+
+// XYZµ½Lab×ª»»¸¨Öúº¯Êı
+double xyz_to_lab_helper(double value) {
+    if (value > 0.008856) {
+        return pow(value, 1.0/3.0);
+    }
+    return (7.787 * value) + (16.0 / 116.0);
+}
+
+// RGBµ½XYZµÄ×ª»»
+XYZ rgb_to_xyz(int r, int g, int b) {
+    double sr = gamma_correction(r / 255.0);
+    double sg = gamma_correction(g / 255.0);
+    double sb = gamma_correction(b / 255.0);
+
+    XYZ xyz;
+    xyz.x = (SRGB_TO_XYZ[0][0] * sr + SRGB_TO_XYZ[0][1] * sg + SRGB_TO_XYZ[0][2] * sb) * WHITE_X;
+    xyz.y = (SRGB_TO_XYZ[1][0] * sr + SRGB_TO_XYZ[1][1] * sg + SRGB_TO_XYZ[1][2] * sb) * WHITE_Y;
+    xyz.z = (SRGB_TO_XYZ[2][0] * sr + SRGB_TO_XYZ[2][1] * sg + SRGB_TO_XYZ[2][2] * sb) * WHITE_Z;
+
+    return xyz;
+}
+
+// XYZµ½LabµÄ×ª»»
+Lab xyz_to_lab(XYZ xyz) {
+    double x = xyz.x / WHITE_X;
+    double y = xyz.y / WHITE_Y;
+    double z = xyz.z / WHITE_Z;
+
+    x = xyz_to_lab_helper(x);
+    y = xyz_to_lab_helper(y);
+    z = xyz_to_lab_helper(z);
+
+    Lab lab;
+    lab.l = (116.0 * y) - 16.0;
+    lab.a = 500.0 * (x - y);
+    lab.b = 200.0 * (y - z);
+
+    return lab;
+}
+
+// RGBµ½LabµÄÖ±½Ó×ª»»
+Lab rgb_to_lab(int r, int g, int b) {
+    XYZ xyz = rgb_to_xyz(r, g, b);
+    return xyz_to_lab(xyz);
+}
+
+// Delta E 2000É«²î¼ÆËã
+double delta_e_2000(Lab lab1, Lab lab2) {
+    // ¼ÆËãC'
+    double c1 = sqrt(lab1.a * lab1.a + lab1.b * lab1.b);
+    double c2 = sqrt(lab2.a * lab2.a + lab2.b * lab2.b);
+    double c_avg = (c1 + c2) / 2.0;
+
+    // ¼ÆËãG
+    double c_avg_pow7 = pow(c_avg, 7);
+    double g = 0.5 * (1.0 - sqrt(c_avg_pow7 / (c_avg_pow7 + pow(25.0, 7))));
+
+    // ¼ÆËãa'
+    double a1_prime = lab1.a * (1.0 + g);
+    double a2_prime = lab2.a * (1.0 + g);
+
+    // ¼ÆËãC'
+    double c1_prime = sqrt(a1_prime * a1_prime + lab1.b * lab1.b);
+    double c2_prime = sqrt(a2_prime * a2_prime + lab2.b * lab2.b);
+
+    // ¼ÆËãh'
+    double h1_prime = rad2deg(atan2(lab1.b, a1_prime));
+    if (h1_prime < 0) h1_prime += 360;
+    double h2_prime = rad2deg(atan2(lab2.b, a2_prime));
+    if (h2_prime < 0) h2_prime += 360;
+
+    // ¼ÆËã¦¤L', ¦¤C', ¦¤H'
+    double delta_l_prime = lab2.l - lab1.l;
+    double delta_c_prime = c2_prime - c1_prime;
+
+    double delta_h_prime;
+    if (c1_prime * c2_prime == 0) {
+        delta_h_prime = 0;
+    } else {
+        if (fabs(h2_prime - h1_prime) <= 180) {
+            delta_h_prime = h2_prime - h1_prime;
+        } else if (h2_prime - h1_prime > 180) {
+            delta_h_prime = h2_prime - h1_prime - 360;
+        } else {
+            delta_h_prime = h2_prime - h1_prime + 360;
+        }
+    }
+    double delta_H_prime = 2.0 * sqrt(c1_prime * c2_prime) * sin(deg2rad(delta_h_prime / 2.0));
+
+    // ¼ÆËãL', C', H'µÄ¼ÓÈ¨Æ½¾ùÖµ
+    double l_prime_avg = (lab1.l + lab2.l) / 2.0;
+    double c_prime_avg = (c1_prime + c2_prime) / 2.0;
+
+    double h_prime_avg;
+    if (c1_prime * c2_prime == 0) {
+        h_prime_avg = h1_prime + h2_prime;
+    } else {
+        if (fabs(h1_prime - h2_prime) <= 180) {
+            h_prime_avg = (h1_prime + h2_prime) / 2.0;
+        } else if (h1_prime + h2_prime < 360) {
+            h_prime_avg = (h1_prime + h2_prime + 360) / 2.0;
+        } else {
+            h_prime_avg = (h1_prime + h2_prime - 360) / 2.0;
+        }
+    }
+
+    // ¼ÆËãT
+    double t = 1.0 - 0.17 * cos(deg2rad(h_prime_avg - 30)) +
+               0.24 * cos(deg2rad(2.0 * h_prime_avg)) +
+               0.32 * cos(deg2rad(3.0 * h_prime_avg + 6.0)) -
+               0.20 * cos(deg2rad(4.0 * h_prime_avg - 63));
+
+    // ¼ÆËãRT
+    double delta_theta = 30 * exp(-pow((h_prime_avg - 275) / 25, 2));
+    double rc = 2.0 * sqrt(pow(c_prime_avg, 7) / (pow(c_prime_avg, 7) + pow(25.0, 7)));
+    double rt = -sin(deg2rad(2.0 * delta_theta)) * rc;
+
+    // ¼ÆËã²¹³¥ÏµÊı
+    double sl = 1.0 + ((0.015 * pow(l_prime_avg - 50, 2)) /
+                       sqrt(20 + pow(l_prime_avg - 50, 2)));
+    double sc = 1.0 + 0.045 * c_prime_avg;
+    double sh = 1.0 + 0.015 * c_prime_avg * t;
+
+    // ¼ÆËã×îÖÕµÄÉ«²îÖµ
+    double delta_l = delta_l_prime / sl;
+    double delta_c = delta_c_prime / sc;
+    double delta_h = delta_H_prime / sh;
+
+    return sqrt(pow(delta_l, 2) + pow(delta_c, 2) + pow(delta_h, 2) +
+                rt * delta_c * delta_h);
+}
+
+// ÑÕÉ«¼ì²âº¯Êı
+bool is_color_found_DE_single(DWORD* pPixels, int pixel_count, int red, int green, int blue, double threshold) {
+    // ¼ÆËãÔ­Ê¼·½ÕóµÄ±ß³¤
+    int side_length = (int)sqrt(pixel_count);
+
+    // ¼ÆËãÖĞĞÄ6x6ÇøÓòµÄ±ß½ç
+    int center_start = side_length/2 - 3;
+    int center_end = center_start + 6;
+
+    const int WHITE_THRESHOLD = 240;
+    const double MAX_WHITE_RATIO = 0.6;
+    const double TAR_RATIO = 0.1;
+
+    int white_pixel_count = 0;
+    int valid_pixel_count = 0;
+
+    Lab target = rgb_to_lab(red, green, blue);
+
+    // ÏÈÍ³¼Æ°×É«ÏñËØ
+    for(int row = 0; row < side_length; row++) {
+        for(int col = 0; col < side_length; col++) {
+            // Ìø¹ıÖĞĞÄ6x6ÇøÓò
+            if(row >= center_start && row < center_end &&
+               col >= center_start && col < center_end) {
+                continue;
+            }
+
+            valid_pixel_count++;
+            int i = row * side_length + col;
+            DWORD pixelColor = pPixels[i];
+            int r = GetRValue(pixelColor);
+            int g = GetGValue(pixelColor);
+            int b = GetBValue(pixelColor);
+
+            if(r > WHITE_THRESHOLD &&
+               g > WHITE_THRESHOLD &&
+               b > WHITE_THRESHOLD) {
+                white_pixel_count++;
+            }
+        }
+    }
+
+    // ¼ì²é°×É«ÏñËØ±ÈÀı
+    double white_ratio = (double)white_pixel_count / valid_pixel_count;
+    if(white_ratio > MAX_WHITE_RATIO) {
+        return false;
+    }
+
+    int target_count = 0;
+
+    // ÔÙ¼ì²éÑÕÉ«Æ¥Åä
+    for(int row = 0; row < side_length; row++) {
+        for(int col = 0; col < side_length; col++) {
+            // Ìø¹ıÖĞĞÄ6x6ÇøÓò
+            if(row >= center_start && row < center_end &&
+               col >= center_start && col < center_end) {
+                continue;
+            }
+
+            int i = row * side_length + col;
+            DWORD pixelColor = pPixels[i];
+            int r = GetRValue(pixelColor);
+            int g = GetGValue(pixelColor);
+            int b = GetBValue(pixelColor);
+
+            Lab current = rgb_to_lab(r, g, b);
+            double difference = delta_e_2000(target, current);
+
+            if (difference < threshold) {
+                target_count++;
+            }
+        }
+    }
+
+    double tar_ratio = (double)target_count / valid_pixel_count;
+    if(tar_ratio >= TAR_RATIO) {
+        return true;
+    }
+    return false;
+}
+
 
 bool is_color_found_DE(DWORD* pPixels, int pixel_count, int red, int green, int blue, double threshold) {
+    // ¼ÆËãÔ­Ê¼·½ÕóµÄ±ß³¤
+    int side_length = (int)sqrt(pixel_count);
+
     double total_deltaE = 0.0;
     int white_pixel_count = 0;
-    const int WHITE_THRESHOLD = 240; // RGBéƒ½è¶…è¿‡è¿™ä¸ªå€¼è®¤ä¸ºæ¥è¿‘ç™½è‰²
-    const double MAX_WHITE_RATIO = 0.6; // ç™½è‰²åƒç´ æ¯”ä¾‹è¶…è¿‡è¿™ä¸ªå€¼å°±è¿”å›false
+    int valid_pixel_count = 0; // ÓÃÓÚÍ³¼Æ²ÎÓë¼ÆËãµÄÓĞĞ§ÏñËØÊı
+    const int WHITE_THRESHOLD = 240;
+    const double MAX_WHITE_RATIO = 0.6;
 
-    // é¢„å…ˆè®¡ç®—ç›®æ ‡é¢œè‰²çš„Labå€¼
+    // ¼ÆËãÖĞĞÄ6x6ÇøÓòµÄ±ß½ç
+    int center_start = side_length/2 - 3;
+    int center_end = center_start + 6;
+
+    // Ô¤ÏÈ¼ÆËãÄ¿±êÑÕÉ«µÄLabÖµ
     double r = red / 255.0;
     double g = green / 255.0;
     double b = blue / 255.0;
@@ -304,66 +553,76 @@ bool is_color_found_DE(DWORD* pPixels, int pixel_count, int red, int green, int 
     double a2 = 500.0 * (X - Y);
     double b2 = 200.0 * (Y - Z);
 
-    // éå†åƒç´ 
-    for(int i = 0; i < pixel_count; i++) {
-        int curr_blue = pPixels[i] & 0xFF;
-        int curr_green = (pPixels[i] >> 8) & 0xFF;
-        int curr_red = (pPixels[i] >> 16) & 0xFF;
+    // ±éÀúÏñËØ
+    for(int row = 0; row < side_length; row++) {
+        for(int col = 0; col < side_length; col++) {
+            // Ìø¹ıÖĞĞÄ6x6ÇøÓò
+            if(row >= center_start && row < center_end &&
+               col >= center_start && col < center_end) {
+                continue;
+            }
 
-        // æ£€æŸ¥æ˜¯å¦æ¥è¿‘ç™½è‰²
-        if(curr_red > WHITE_THRESHOLD &&
-           curr_green > WHITE_THRESHOLD &&
-           curr_blue > WHITE_THRESHOLD) {
-            white_pixel_count++;
+            int i = row * side_length + col;
+            valid_pixel_count++;
+
+            int curr_blue = pPixels[i] & 0xFF;
+            int curr_green = (pPixels[i] >> 8) & 0xFF;
+            int curr_red = (pPixels[i] >> 16) & 0xFF;
+
+            // ¼ì²éÊÇ·ñ½Ó½ü°×É«
+            if(curr_red > WHITE_THRESHOLD &&
+               curr_green > WHITE_THRESHOLD &&
+               curr_blue > WHITE_THRESHOLD) {
+                white_pixel_count++;
+            }
+
+            // RGBµ½XYZ
+            r = curr_red / 255.0;
+            g = curr_green / 255.0;
+            b = curr_blue / 255.0;
+
+            r = (r > 0.04045) ? pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+            g = (g > 0.04045) ? pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+            b = (b > 0.04045) ? pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+
+            r *= 100.0;
+            g *= 100.0;
+            b *= 100.0;
+
+            X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+            Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+            Z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+
+            X /= 95.047;
+            Y /= 100.000;
+            Z /= 108.883;
+
+            X = (X > 0.008856) ? pow(X, 1.0/3.0) : (7.787 * X + 16.0/116.0);
+            Y = (Y > 0.008856) ? pow(Y, 1.0/3.0) : (7.787 * Y + 16.0/116.0);
+            Z = (Z > 0.008856) ? pow(Z, 1.0/3.0) : (7.787 * Z + 16.0/116.0);
+
+            double L1 = (116.0 * Y) - 16.0;
+            double a1 = 500.0 * (X - Y);
+            double b1 = 200.0 * (Y - Z);
+
+            double deltaL = L1 - L2;
+            double deltaA = a1 - a2;
+            double deltaB = b1 - b2;
+
+            total_deltaE += sqrt(deltaL*deltaL + deltaA*deltaA + deltaB*deltaB);
         }
-
-        // RGBåˆ°XYZ
-        r = curr_red / 255.0;
-        g = curr_green / 255.0;
-        b = curr_blue / 255.0;
-
-        r = (r > 0.04045) ? pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
-        g = (g > 0.04045) ? pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
-        b = (b > 0.04045) ? pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
-
-        r *= 100.0;
-        g *= 100.0;
-        b *= 100.0;
-
-        X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
-        Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
-        Z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
-
-        X /= 95.047;
-        Y /= 100.000;
-        Z /= 108.883;
-
-        X = (X > 0.008856) ? pow(X, 1.0/3.0) : (7.787 * X + 16.0/116.0);
-        Y = (Y > 0.008856) ? pow(Y, 1.0/3.0) : (7.787 * Y + 16.0/116.0);
-        Z = (Z > 0.008856) ? pow(Z, 1.0/3.0) : (7.787 * Z + 16.0/116.0);
-
-        double L1 = (116.0 * Y) - 16.0;
-        double a1 = 500.0 * (X - Y);
-        double b1 = 200.0 * (Y - Z);
-
-        double deltaL = L1 - L2;
-        double deltaA = a1 - a2;
-        double deltaB = b1 - b2;
-
-        total_deltaE += sqrt(deltaL*deltaL + deltaA*deltaA + deltaB*deltaB);
     }
 
-    // æ£€æŸ¥ç™½è‰²åƒç´ æ¯”ä¾‹
-    double white_ratio = (double)white_pixel_count / pixel_count;
+    // ¼ì²é°×É«ÏñËØ±ÈÀı
+    double white_ratio = (double)white_pixel_count / valid_pixel_count;
     if(white_ratio > MAX_WHITE_RATIO) {
         return false;
     }
 
-    // è®¡ç®—éç™½è‰²åƒç´ çš„å¹³å‡è‰²å·®
-    double avg_deltaE = total_deltaE / (pixel_count - white_pixel_count);
+    // ¼ÆËã·Ç°×É«ÏñËØµÄÆ½¾ùÉ«²î
+    double avg_deltaE = total_deltaE / (valid_pixel_count);
     return avg_deltaE < threshold;
 }
-
 
 int get_key_code(char* input_key) {
 
@@ -467,6 +726,13 @@ bool get_valorant_colors(const char* pColor, int* pRed, int* pGreen, int* pBlue)
 
         return true;
     }
+    else if(strcmp(pColor, "red") == 0){
+        *pRed = 254;
+        *pGreen = 64;
+        *pBlue = 64;
+
+        return true;
+    }
     else {
         return false;
     }
@@ -489,8 +755,8 @@ char* get_str(char* key_name) {
             fprintf(file, "hold_mode=1\n");
             fprintf(file, "hold_key=left_shift\n");
             fprintf(file, "target_color=purple\n");
-            fprintf(file, "color_sens=85\n");
-            fprintf(file, "tap_time=320\n");
+            fprintf(file, "color_sens=20\n");
+            fprintf(file, "tap_time=220\n");
             fprintf(file, "scan_area_x=8\n");
             fprintf(file, "scan_area_y=8\n");
             fprintf(file, "key_up_rec_time=100\n");

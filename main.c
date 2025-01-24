@@ -27,12 +27,12 @@ DWORD WINAPI adjust_color_sens(LPVOID lpParam) {
 
     while (true) {
         if (is_key_pressed(plus_key)) {
-            cfg->color_sens += 10;
+            cfg->color_sens += 5;
             printf("color_sens increased to %d\n", cfg->color_sens);
             Sleep(200);
         }
         if (is_key_pressed(dash_key)) {
-            cfg->color_sens -= 10;
+            cfg->color_sens -= 5;
             printf("color_sens decreased to %d\n", cfg->color_sens);
             Sleep(200);
         }
@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     int a_key = get_key_code("a");
     int s_key = get_key_code("s");
     int d_key = get_key_code("d");
-    CONFIG cfg = {0};
+    CONFIG cfg = { 0 };
 
     if (!get_config(&cfg)) {
         printf("Error: The variable name could not be found in the txt file.");
@@ -55,12 +55,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-	if (!get_valorant_colors(cfg.target_color, &red, &green ,&blue)) {
+    if (!get_valorant_colors(cfg.target_color, &red, &green, &blue)) {
         printf("Error: Unknown color.");
         printf("\nPress enter to exit: ");
         getchar();
         return 1;
-    } else {
+    }
+    else {
         printf("red: %d\t", red);
         printf("green: %d\t", green);
         printf("blue: %d\n", blue);
@@ -104,13 +105,14 @@ int main(int argc, char* argv[]) {
         if (is_key_pressed(w_key) || is_key_pressed(a_key) || is_key_pressed(s_key) || is_key_pressed(d_key)) {
             keys_pressed = true;
             continue;
-        } else if (keys_pressed) {
+        }
+        else if (keys_pressed) {
             Sleep(cfg.key_up_rec_time);
             keys_pressed = false;
         }
 
         if (hold_mode == 1 || is_key_pressed(get_key_code(cfg.hold_key))) {
-            unsigned int *pPixels = get_screenshot(0, cfg.scan_area_x, cfg.scan_area_y);
+            unsigned int* pPixels = get_screenshot(0, cfg.scan_area_x, cfg.scan_area_y);
 
             if (pPixels == 0) {
                 printf("ERROR: get_screenshot() failed!");
@@ -119,19 +121,19 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
 
-            if (is_color_found_DE(pPixels, pixel_count, red, green, blue, cfg.color_sens)) {
-                if(!last_detected) {
+            if (is_color_found_DE_single(pPixels, pixel_count, red, green, blue, cfg.color_sens)) {
+                if (!last_detected) {
                     // Sleep 50~120ms
                     Sleep(50 + rand() % 70);
                 }
-				left_click();
+                left_click();
                 stop_counter();
                 last_detected = true;
                 Sleep(cfg.tap_time);
             }
             free(pPixels);
         }
-        else{
+        else {
             Sleep(1);
         }
     }

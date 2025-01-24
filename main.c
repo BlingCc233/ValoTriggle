@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
                 Sleep(cfg.tap_time);
             }
             free(pPixels);
-        }
+        }    else{    last_detected = false;}
         else {
             Sleep(1);
         }

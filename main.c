@@ -130,9 +130,9 @@ int main(int argc, char* argv[]) {
                 stop_counter();
                 last_detected = true;
                 Sleep(cfg.tap_time);
-            }
+            }    else{    last_detected = false;}
             free(pPixels);
-        }    else{    last_detected = false;}
+        }
         else {
             Sleep(1);
         }

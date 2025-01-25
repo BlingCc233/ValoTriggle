@@ -846,7 +846,7 @@ void stop_counter() {
 
 void left_click() {
     mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);  // Press left mouse button
-    Sleep(187);                                      // Wait 187ms
+    Sleep(180 + rand()%20);                                      // Wait 187ms
     mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);    // Release left mouse button
 }
 

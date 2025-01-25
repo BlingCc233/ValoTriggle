@@ -123,8 +123,8 @@ int main(int argc, char* argv[]) {
 
             if (is_color_found_DE_single(pPixels, pixel_count, red, green, blue, cfg.color_sens)) {
                 if (!last_detected) {
-                    // Sleep 50~120ms
-                    Sleep(50 + rand() % 70);
+                    // Sleep 20~700ms
+                    Sleep(20 + rand() % 50);
                 }
                 left_click();
                 stop_counter();

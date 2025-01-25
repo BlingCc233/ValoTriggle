@@ -1,5 +1,47 @@
 #include "helper.h"
 #include <windows.h>
+#include <stdio.h>
+#include <time.h>
+
+
+// 生成简单的随机UUID字符串
+void generate_uuid(char* uuid) {
+    static const char hex_chars[] = "0123456789abcdef";
+    int i;
+    
+    srand((unsigned int)time(NULL));
+    
+    for(i = 0; i < 32; i++) {
+        uuid[i] = hex_chars[rand() % 16];
+        if(i == 7 || i == 11 || i == 15 || i == 19) {
+            uuid[i+1] = '-';
+            i++;
+        }
+    }
+    uuid[36] = '\0';
+}
+
+// 修改进程名称
+void set_process_name(const char* name) {
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    PROCESSENTRY32 process = { sizeof(process) };
+    DWORD pid = GetCurrentProcessId();
+    
+    if(Process32First(snapshot, &process)) {
+        do {
+            if(process.th32ProcessID == pid) {
+                HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+                if(hProcess != NULL) {
+                    SetWindowTextA(GetConsoleWindow(), name);
+                    CloseHandle(hProcess);
+                }
+                break;
+            }
+        } while(Process32Next(snapshot, &process));
+    }
+    CloseHandle(snapshot);
+}
+
 
 volatile int hold_mode = 1;
 
@@ -41,6 +83,10 @@ DWORD WINAPI adjust_color_sens(LPVOID lpParam) {
 }
 
 int main(int argc, char* argv[]) {
+    char uuid[37];
+    generate_uuid(uuid);
+    set_process_name(uuid);
+    
     int red, blue, green;
     int w_key = get_key_code("w");
     int a_key = get_key_code("a");

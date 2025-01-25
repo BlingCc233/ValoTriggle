@@ -845,11 +845,9 @@ void stop_counter() {
 }
 
 void left_click() {
-    //    mouse_event(MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
-
-    keybd_event(get_key_code("k"), 0, 0, 0);        // Press 'K'
-    Sleep(187);
-    keybd_event(get_key_code("k"), 0, KEYEVENTF_KEYUP, 0); // Release 'K'
+    mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);  // Press left mouse button
+    Sleep(187);                                      // Wait 187ms
+    mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);    // Release left mouse button
 }
 
 bool is_key_pressed(int hold_key) {
@@ -859,15 +857,8 @@ bool is_key_pressed(int hold_key) {
 
 
 void print_logo() {
-    //system("cls");
-    disable_quickedit();
     printf("==================================================\n");
-    printf("                  TRIGGERBOT                     \n");
-    printf("==================================================\n");
-    printf("\n");
-    printf("==================================================\n");
-    printf("Version 2.1                     \n");
-    printf("Triggerbot is running successfully!    \n");
+    printf("Version 2.2                     \n");
     printf("==================================================\n");
     printf("\n");
 }

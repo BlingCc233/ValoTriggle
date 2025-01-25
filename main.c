@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <time.h>
+#include <tlhelp32.h>
 
 
 // 生成简单的随机UUID字符串

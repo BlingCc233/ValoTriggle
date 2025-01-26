@@ -22,27 +22,6 @@ void generate_uuid(char* uuid) {
     uuid[36] = '\0';
 }
 
-// 修改进程名称
-void set_process_name(const char* name) {
-    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    PROCESSENTRY32 process = { sizeof(process) };
-    DWORD pid = GetCurrentProcessId();
-    
-    if(Process32First(snapshot, &process)) {
-        do {
-            if(process.th32ProcessID == pid) {
-                HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-                if(hProcess != NULL) {
-                    SetWindowTextA(GetConsoleWindow(), name);
-                    CloseHandle(hProcess);
-                }
-                break;
-            }
-        } while(Process32Next(snapshot, &process));
-    }
-    CloseHandle(snapshot);
-}
-
 // 修改窗口标题和进程名称
 void set_window_and_process_name(const char* name) {
     // 设置控制台窗口标题
@@ -110,7 +89,6 @@ DWORD WINAPI adjust_color_sens(LPVOID lpParam) {
 int main(int argc, char* argv[]) {
     char uuid[37];
     generate_uuid(uuid);
-    set_process_name(uuid);
     // 设置窗口标题和进程名
     set_window_and_process_name(uuid);
     

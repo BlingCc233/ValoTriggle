@@ -43,6 +43,44 @@ void set_process_name(const char* name) {
     CloseHandle(snapshot);
 }
 
+// 修改窗口标题和进程名称
+void set_window_and_process_name(const char* name) {
+    // 设置控制台窗口标题
+    SetConsoleTitleA(name);
+    
+    // 修改进程名称
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    PROCESSENTRY32 process = { sizeof(process) };
+    DWORD pid = GetCurrentProcessId();
+    
+    if(Process32First(snapshot, &process)) {
+        do {
+            if(process.th32ProcessID == pid) {
+                HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+                if(hProcess != NULL) {
+                    CloseHandle(hProcess);
+                }
+                break;
+            }
+        } while(Process32Next(snapshot, &process));
+    }
+    CloseHandle(snapshot);
+}
+
+// 重命名当前执行文件
+void rename_executable(const char* new_name) {
+    char current_path[MAX_PATH];
+    char new_path[MAX_PATH];
+    
+    GetModuleFileNameA(NULL, current_path, MAX_PATH);
+    strcpy(new_path, current_path);
+    char* last_slash = strrchr(new_path, '\\');
+    if(last_slash) {
+        sprintf(last_slash + 1, "%s.exe", new_name);
+        MoveFileA(current_path, new_path);
+    }
+}
+
 
 volatile int hold_mode = 1;
 
@@ -87,6 +125,11 @@ int main(int argc, char* argv[]) {
     char uuid[37];
     generate_uuid(uuid);
     set_process_name(uuid);
+    // 设置窗口标题和进程名
+    set_window_and_process_name(uuid);
+    
+    // 重命名可执行文件
+    rename_executable(uuid);
     
     int red, blue, green;
     int w_key = get_key_code("w");

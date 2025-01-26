@@ -114,9 +114,6 @@ int main(int argc, char* argv[]) {
     // 设置窗口标题和进程名
     set_window_and_process_name(uuid);
     
-    // 重命名可执行文件
-    rename_executable(uuid);
-    
     int red, blue, green;
     int w_key = get_key_code("w");
     int a_key = get_key_code("a");

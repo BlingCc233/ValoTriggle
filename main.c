@@ -67,20 +67,6 @@ void set_window_and_process_name(const char* name) {
     CloseHandle(snapshot);
 }
 
-// 重命名当前执行文件
-void rename_executable(const char* new_name) {
-    char current_path[MAX_PATH];
-    char new_path[MAX_PATH];
-    
-    GetModuleFileNameA(NULL, current_path, MAX_PATH);
-    strcpy(new_path, current_path);
-    char* last_slash = strrchr(new_path, '\\');
-    if(last_slash) {
-        sprintf(last_slash + 1, "%s.exe", new_name);
-        MoveFileA(current_path, new_path);
-    }
-}
-
 
 volatile int hold_mode = 1;
 
@@ -162,7 +148,6 @@ int main(int argc, char* argv[]) {
     get_screenshot(0, cfg.scan_area_x, cfg.scan_area_y); // Call it once
     print_logo();
 
-    bool last_detected = false;
     bool keys_pressed = false;
     hold_mode = cfg.hold_mode;
 
@@ -212,15 +197,10 @@ int main(int argc, char* argv[]) {
             }
 
             if (is_color_found_DE_single(pPixels, pixel_count, red, green, blue, cfg.color_sens)) {
-                if (!last_detected) {
-                    // Sleep 0~20ms
-                    Sleep(rand() % 20);
-                }
                 left_click();
                 stop_counter();
-                last_detected = true;
                 Sleep(cfg.tap_time);
-            }    else{    last_detected = false;}
+            }
             free(pPixels);
         }
         else {
